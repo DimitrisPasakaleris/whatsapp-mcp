@@ -1,0 +1,24 @@
+{
+  "manifest_version": "0.3",
+  "name": "whatsapp-mcp",
+  "version": "0.3.0",
+  "description": "WhatsApp MCP — bridge WhatsApp Web to the Model Context Protocol via a local Go process + Python MCP server.",
+  "author": {
+    "name": "Dimitris Pasakaleris"
+  },
+  "homepage": "https://github.com/DimitrisPasakaleris/whatsapp-mcp",
+  "license": "MIT",
+  "server": {
+    "type": "python",
+    "entry_point": "src/whatsapp_mcp/server.py"
+  },
+  "dependencies": {
+    "required": [
+      "httpx>=0.28.1",
+      "mcp[cli]>=1.27.0",
+      "requests>=2.33.1",
+      "anyio<4.14"
+    ]
+  },
+  "instructions": "Install: 1) Install Go 1.22+ (or run `python download_go.py` for a portable install), 2) Install the Python side with `pip install -e .` from the repo root, 3) Start with `python launch.py` (auto-starts the Go bridge then the MCP server) or call `whatsapp-mcp` directly after the bridge is running, 4) Scan the QR code that the Go bridge prints to its terminal to pair the WhatsApp Web session. See README.md and SETUP.md for the longer walkthrough."
+}

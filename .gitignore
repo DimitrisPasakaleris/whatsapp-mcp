@@ -1,0 +1,68 @@
+# Databases (WhatsApp session + message archive — NEVER commit)
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# WhatsApp session files
+*.session
+*-session.json
+
+# Config
+claude_desktop_config.json
+
+# Claude Code local settings (per-user)
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+**/.DS_Store
+
+# Node
+node_modules/
+package-lock.json
+
+# Go binaries
+whatsapp-bridge/whatsapp-bridge
+whatsapp-bridge/whatsapp-client
+*.exe
+
+# WhatsApp data (personal/sensitive)
+whatsapp-bridge/store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Testing / type checking
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# uv lock (regenerated on install)
+uv.lock

@@ -1,0 +1,20 @@
+# Code owners — auto-requested for review on matching paths.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Default — every PR
+*                                       @DimitrisPasakaleris
+
+# Go bridge (whatsmeow internals: LIDs, history sync, stream events, media)
+/whatsapp-bridge/                       @DimitrisPasakaleris
+
+# Python package — whatsapp.py touches the same whatsmeow SQLite stores
+/src/whatsapp_mcp/whatsapp.py           @DimitrisPasakaleris
+
+# CI / release / governance
+/.github/                               @DimitrisPasakaleris
+/release-please-config.json             @DimitrisPasakaleris
+/.release-please-manifest.json          @DimitrisPasakaleris
+/ROADMAP.md                             @DimitrisPasakaleris
+/AGENTS.md                              @DimitrisPasakaleris
+/CLAUDE.md                              @DimitrisPasakaleris
+/CONTRIBUTING.md                        @DimitrisPasakaleris
