@@ -267,6 +267,13 @@ Get messages around a specific message for context.
 
 Copy `.env.example` to `.env` and configure as needed:
 
+Set these variables in the MCP process environment (or load `.env` through your
+process manager). A source checkout resolves its default database location to
+`whatsapp-bridge/store`, even before first pairing. Explicit `WHATSAPP_DB_PATH`,
+`WHATSMEOW_DB_PATH`, and `WHATSAPP_API_URL` values override those defaults.
+Startup probes the configured API's `/health` route; a disconnected bridge is
+recognized as running rather than launching another instance.
+
 | Variable               | Default                                  | Description                                  |
 | ---------------------- | ---------------------------------------- | -------------------------------------------- |
 | `WHATSAPP_BRIDGE_PORT` | `8080`                                   | Port for Go bridge REST API                  |

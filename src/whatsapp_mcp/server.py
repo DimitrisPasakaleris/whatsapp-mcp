@@ -58,6 +58,7 @@ _bridge_start_lock = threading.Lock()
 
 # ── Logging + startup banner ─────────────────────────────────────────────────
 
+
 def _setup_logging() -> None:
     """Configure rotating file logging. Keeps stdout clean for MCP stdio transport."""
     config.config_dir.mkdir(parents=True, exist_ok=True)
@@ -65,9 +66,7 @@ def _setup_logging() -> None:
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-8s | %(message)s",
         handlers=[
-            RotatingFileHandler(
-                config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3
-            ),
+            RotatingFileHandler(config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3),
         ],
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
@@ -83,6 +82,7 @@ def _setup_logging() -> None:
 
 
 # ── Auto-start Go bridge if not running ──────────────────────────────────────
+
 
 def _find_go() -> str | None:
     """Find the Go binary: prefer the portable install at ~/tools/go, fall back to PATH."""
@@ -100,9 +100,15 @@ def _is_port_in_use(port: int = 8080) -> bool:
 
 def _is_bridge_running() -> bool:
     try:
-        url = config.bridge_api_url.replace("/api", "") + "/health"
+        url = config.bridge_api_url.rstrip("/") + "/health"
         with urllib.request.urlopen(url, timeout=2) as resp:
             return resp.status == 200
+    except urllib.error.HTTPError as exc:
+        # An existing bridge returns 503 while WhatsApp is disconnected.
+        try:
+            return exc.code == 503
+        finally:
+            exc.close()
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
         return False
 
@@ -165,7 +171,7 @@ def _start_bridge_async() -> None:
     """Start the Go bridge in a background thread so MCP init isn't blocked."""
     global _bridge_proc
     with _bridge_start_lock:
-        if _is_bridge_running() or _is_port_in_use(8080):
+        if _is_bridge_running() or _is_port_in_use(config.bridge_port):
             logger.info("Bridge is already running (detected by health check or port bind).")
             return
         _bridge_proc = _start_bridge()
@@ -173,12 +179,14 @@ def _start_bridge_async() -> None:
 
 # ── Helper to wrap DB-backed tools so WhatsAppDBError surfaces cleanly ───────
 
+
 def _db_error_response(operation: str, exc: WhatsAppDBError) -> dict[str, Any]:
     logger.error("WhatsAppDBError in %s: %s", operation, exc)
     return {"error": "database_error", "operation": operation, "message": str(exc)}
 
 
 # ── Tools ────────────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def search_contacts(query: str) -> list[dict[str, Any]] | dict[str, Any]:
@@ -506,6 +514,7 @@ def download_media(message_id: str, chat_jid: str) -> dict[str, Any]:
 
 
 # ── Shutdown handling + entry point ──────────────────────────────────────────
+
 
 def shutdown_handler(signum, frame) -> None:  # noqa: ARG001 — signal handler signature
     """Handle shutdown signals gracefully so the bridge process isn't orphaned."""
