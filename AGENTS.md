@@ -103,7 +103,7 @@ A failing blocking job is a hard block — fix it or explain in the PR why it's 
 | `WHATSAPP_API_URL` | `http://localhost:8080/api` | Bridge REST endpoint |
 | `WHATSAPP_BRIDGE_PORT` | `8080` | Port the bridge binds to |
 | `WEBHOOK_URL` | `http://localhost:8769/whatsapp/webhook` | Outgoing webhook for incoming messages (empty = disabled) |
-| `FORWARD_SELF` | `false` | Whether self-sent messages are forwarded |
+| `FORWARD_SELF` | `true` | Whether self-sent messages are forwarded |
 
 When adding a new env var: document it here, in `README.md`, and in `.env.example`.
 
