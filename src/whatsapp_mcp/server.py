@@ -58,6 +58,7 @@ _bridge_start_lock = threading.Lock()
 
 # ── Logging + startup banner ─────────────────────────────────────────────────
 
+
 def _setup_logging() -> None:
     """Configure rotating file logging. Keeps stdout clean for MCP stdio transport."""
     config.config_dir.mkdir(parents=True, exist_ok=True)
@@ -65,9 +66,7 @@ def _setup_logging() -> None:
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-8s | %(message)s",
         handlers=[
-            RotatingFileHandler(
-                config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3
-            ),
+            RotatingFileHandler(config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3),
         ],
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
@@ -83,6 +82,7 @@ def _setup_logging() -> None:
 
 
 # ── Auto-start Go bridge if not running ──────────────────────────────────────
+
 
 def _find_go() -> str | None:
     """Find the Go binary: prefer the portable install at ~/tools/go, fall back to PATH."""
@@ -173,12 +173,14 @@ def _start_bridge_async() -> None:
 
 # ── Helper to wrap DB-backed tools so WhatsAppDBError surfaces cleanly ───────
 
+
 def _db_error_response(operation: str, exc: WhatsAppDBError) -> dict[str, Any]:
     logger.error("WhatsAppDBError in %s: %s", operation, exc)
     return {"error": "database_error", "operation": operation, "message": str(exc)}
 
 
 # ── Tools ────────────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def search_contacts(query: str) -> list[dict[str, Any]] | dict[str, Any]:
@@ -422,16 +424,19 @@ def get_last_interaction(jid: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_message_context(message_id: str, before: int = 5, after: int = 5) -> dict[str, Any]:
+def get_message_context(
+    message_id: str, before: int = 5, after: int = 5, chat_jid: str | None = None
+) -> dict[str, Any]:
     """Get context around a specific WhatsApp message.
 
     Args:
         message_id: The ID of the message to get context for
         before: Number of messages to include before the target message (default 5)
         after: Number of messages to include after the target message (default 5)
+        chat_jid: Chat containing the message; required when its ID occurs in multiple chats
     """
     try:
-        return whatsapp_get_message_context(message_id, before, after)
+        return whatsapp_get_message_context(message_id, before, after, chat_jid)
     except WhatsAppDBError as e:
         return _db_error_response("get_message_context", e)
 
@@ -506,6 +511,7 @@ def download_media(message_id: str, chat_jid: str) -> dict[str, Any]:
 
 
 # ── Shutdown handling + entry point ──────────────────────────────────────────
+
 
 def shutdown_handler(signum, frame) -> None:  # noqa: ARG001 — signal handler signature
     """Handle shutdown signals gracefully so the bridge process isn't orphaned."""

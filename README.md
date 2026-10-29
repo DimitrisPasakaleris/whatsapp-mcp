@@ -259,9 +259,13 @@ Get messages around a specific message for context.
 **Parameters:**
 
 - `message_id` (required): ID of the target message
-- `chat_jid` (required): JID of the chat
+- `chat_jid` (optional): JID of the chat; required if the message ID occurs in multiple chats
 - `before` (optional): Number of messages before (default 5)
 - `after` (optional): Number of messages after (default 5)
+
+Message context preserves the requested sort order and does not collapse equal
+message IDs from different chats. Chat listings return one row per chat even
+when several messages share the latest timestamp.
 
 ## Configuration
 
