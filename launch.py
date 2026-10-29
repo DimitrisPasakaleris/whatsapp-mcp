@@ -29,7 +29,10 @@ BRIDGE_DIR = SCRIPT_DIR / "whatsapp-bridge"
 PORTABLE_GO = Path.home() / "tools" / "go" / "bin" / "go.exe"
 
 # Default bridge URL
-BRIDGE_HEALTH_URL = "http://127.0.0.1:8080/api/health"
+BRIDGE_HEALTH_URL = (
+    os.getenv("WHATSAPP_API_URL")
+    or f"http://{os.getenv('WHATSAPP_BRIDGE_HOST', '127.0.0.1')}:{os.getenv('WHATSAPP_BRIDGE_PORT', '8080')}/api"
+).rstrip("/") + "/health"
 BRIDGE_START_TIMEOUT = 30  # seconds
 
 
@@ -57,7 +60,12 @@ def is_bridge_running() -> bool:
     try:
         with urllib.request.urlopen(BRIDGE_HEALTH_URL, timeout=2) as resp:
             return resp.status == 200
-    except Exception:
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code == 503
+        finally:
+            exc.close()
+    except (urllib.error.URLError, TimeoutError, OSError):
         return False
 
 
@@ -139,7 +147,7 @@ def start_mcp_server(logger: logging.Logger):
     # whatsapp-bridge/ via its relative path resolution.
     os.chdir(str(SCRIPT_DIR))
     logger.info("Server entering mcp.run() via %s", " ".join(cmd))
-    subprocess.run(cmd)
+    return subprocess.run(cmd).returncode
 
 
 def main():
@@ -162,7 +170,10 @@ def main():
             else:
                 bridge_proc = start_bridge(logger)
 
-        if not args.bridge_only:
+        if args.bridge_only:
+            if bridge_proc is not None:
+                bridge_proc.wait()
+        else:
             # Give bridge a moment to fully initialize if we just started it
             if bridge_proc and not is_bridge_running():
                 logger.info("Waiting a few more seconds for bridge initialization...")
@@ -171,12 +182,12 @@ def main():
                         break
                     time.sleep(1)
 
-            start_mcp_server(logger)
+            raise SystemExit(start_mcp_server(logger))
 
     except KeyboardInterrupt:
         logger.info("\nShutting down...")
     finally:
-        if bridge_proc is not None:
+        if bridge_proc is not None and bridge_proc.poll() is None:
             logger.info("Stopping bridge (PID %d)...", bridge_proc.pid)
             bridge_proc.terminate()
             try:
