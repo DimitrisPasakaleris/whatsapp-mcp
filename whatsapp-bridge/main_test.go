@@ -1072,6 +1072,28 @@ func captureWebhook(t *testing.T) (*httptest.Server, <-chan WebhookPayload) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
+	t.Setenv("WEBHOOK_URL", srv.URL)
+	// Production starts the asynchronous worker in main(). Unit tests do not
+	// run main, so drain older fixtures and give this test an owned worker.
+	for len(webhookQueue) > 0 {
+		<-webhookQueue
+	}
+	stop, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case payload := <-webhookQueue:
+				sendWebhookPayload(payload)
+			case <-stop:
+				return
+			}
+		}
+	}()
+	t.Cleanup(func() {
+		close(stop)
+		<-done
+	})
 	return srv, ch
 }
 
