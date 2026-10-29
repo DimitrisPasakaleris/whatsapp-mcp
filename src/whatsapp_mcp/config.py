@@ -38,8 +38,8 @@ def _default_store_dir() -> Path:
 
     # Try to find the bridge store relative to this file
     this_dir = Path(__file__).resolve().parent
-    repo_store = this_dir.parent / "whatsapp-bridge" / "store"
-    if repo_store.exists():
+    repo_store = this_dir.parent.parent / "whatsapp-bridge" / "store"
+    if repo_store.parent.is_dir():
         return repo_store
 
     # Fallback: put it inside the config dir
@@ -57,11 +57,11 @@ class Config:
     # Database paths
     @property
     def messages_db_path(self) -> Path:
-        return self.store_dir / "messages.db"
+        return Path(os.getenv("WHATSAPP_DB_PATH", str(self.store_dir / "messages.db"))).expanduser().resolve()
 
     @property
     def whatsmeow_db_path(self) -> Path:
-        return self.store_dir / "whatsapp.db"
+        return Path(os.getenv("WHATSMEOW_DB_PATH", str(self.store_dir / "whatsapp.db"))).expanduser().resolve()
 
     # Logging
     log_path: Path = field(default_factory=lambda: _default_config_dir() / "whatsapp-mcp.log")
@@ -72,6 +72,8 @@ class Config:
 
     @property
     def bridge_api_url(self) -> str:
+        if override := os.getenv("WHATSAPP_API_URL"):
+            return override.rstrip("/")
         return f"http://{self.bridge_host}:{self.bridge_port}/api"
 
     # Webhook (only relevant if running the bridge yourself)

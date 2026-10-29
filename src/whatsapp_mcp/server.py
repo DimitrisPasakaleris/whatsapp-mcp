@@ -126,9 +126,15 @@ def _is_port_in_use(port: int = 8080) -> bool:
 
 def _is_bridge_running() -> bool:
     try:
-        url = config.bridge_api_url.replace("/api", "") + "/health"
+        url = config.bridge_api_url.rstrip("/") + "/health"
         with urllib.request.urlopen(url, timeout=2) as resp:
             return resp.status == 200
+    except urllib.error.HTTPError as exc:
+        # An existing bridge returns 503 while WhatsApp is disconnected.
+        try:
+            return exc.code == 503
+        finally:
+            exc.close()
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
         return False
 
@@ -191,7 +197,7 @@ def _start_bridge_async() -> None:
     """Start the Go bridge in a background thread so MCP init isn't blocked."""
     global _bridge_proc
     with _bridge_start_lock:
-        if _is_bridge_running() or _is_port_in_use(8080):
+        if _is_bridge_running() or _is_port_in_use(config.bridge_port):
             logger.info("Bridge is already running (detected by health check or port bind).")
             return
         _bridge_proc = _start_bridge()
