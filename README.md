@@ -448,6 +448,11 @@ sequenceDiagram
 
 ## Development
 
+AnyIO requires version 4.14.2 or later within major version 4. This replaces
+the older cap that excluded security and cancellation fixes. The offline suite
+includes a real MCP stdio initialization/list-tools/shutdown check with bridge
+startup disabled, so lifecycle regressions can be detected without an account.
+
 ### Running Tests
 
 ```bash
