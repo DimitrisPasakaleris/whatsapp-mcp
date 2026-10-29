@@ -489,6 +489,12 @@ are documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Troubleshooting
 
+The optional `launch.py --bridge-only` launcher waits for the bridge process it
+starts; it does not immediately stop it on returning from startup. Normal MCP
+launches preserve the child server's exit status so supervisors can detect
+failures. Launcher health probes honor `WHATSAPP_API_URL` and the configured
+bridge host/port.
+
 ### Authentication Issues
 
 - **QR Code Not Displaying**: Restart the bridge. Check terminal QR code support.
