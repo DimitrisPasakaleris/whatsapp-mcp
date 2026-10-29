@@ -28,22 +28,48 @@ from mcp.server.fastmcp import FastMCP
 
 from .config import config
 from .whatsapp import (
+    MessageContext,
     WhatsAppDBError,
+)
+from .whatsapp import (
     download_media as whatsapp_download_media,
+)
+from .whatsapp import (
     get_chat as whatsapp_get_chat,
+)
+from .whatsapp import (
     get_contact_chats as whatsapp_get_contact_chats,
+)
+from .whatsapp import (
     get_direct_chat_by_contact as whatsapp_get_direct_chat_by_contact,
+)
+from .whatsapp import (
     get_last_interaction as whatsapp_get_last_interaction,
+)
+from .whatsapp import (
     get_message_context as whatsapp_get_message_context,
+)
+from .whatsapp import (
     get_sender_name as whatsapp_get_sender_name,
+)
+from .whatsapp import (
     list_chats as whatsapp_list_chats,
+)
+from .whatsapp import (
     list_messages as whatsapp_list_messages,
+)
+from .whatsapp import (
     search_contacts as whatsapp_search_contacts,
+)
+from .whatsapp import (
     send_audio_message as whatsapp_audio_voice_message,
+)
+from .whatsapp import (
     send_file as whatsapp_send_file,
+)
+from .whatsapp import (
     send_message as whatsapp_send_message,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +84,7 @@ _bridge_start_lock = threading.Lock()
 
 # ── Logging + startup banner ─────────────────────────────────────────────────
 
+
 def _setup_logging() -> None:
     """Configure rotating file logging. Keeps stdout clean for MCP stdio transport."""
     config.config_dir.mkdir(parents=True, exist_ok=True)
@@ -65,9 +92,7 @@ def _setup_logging() -> None:
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-8s | %(message)s",
         handlers=[
-            RotatingFileHandler(
-                config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3
-            ),
+            RotatingFileHandler(config.log_path, encoding="utf-8", maxBytes=5 * 1024 * 1024, backupCount=3),
         ],
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
@@ -83,6 +108,7 @@ def _setup_logging() -> None:
 
 
 # ── Auto-start Go bridge if not running ──────────────────────────────────────
+
 
 def _find_go() -> str | None:
     """Find the Go binary: prefer the portable install at ~/tools/go, fall back to PATH."""
@@ -173,12 +199,14 @@ def _start_bridge_async() -> None:
 
 # ── Helper to wrap DB-backed tools so WhatsAppDBError surfaces cleanly ───────
 
+
 def _db_error_response(operation: str, exc: WhatsAppDBError) -> dict[str, Any]:
     logger.error("WhatsAppDBError in %s: %s", operation, exc)
     return {"error": "database_error", "operation": operation, "message": str(exc)}
 
 
 # ── Tools ────────────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def search_contacts(query: str) -> list[dict[str, Any]] | dict[str, Any]:
@@ -363,7 +391,7 @@ def list_chats(
 
 
 @mcp.tool()
-def get_chat(chat_jid: str, include_last_message: bool = True) -> dict[str, Any]:
+def get_chat(chat_jid: str, include_last_message: bool = True) -> dict[str, Any] | None:
     """Get WhatsApp chat metadata by JID.
 
     Args:
@@ -377,7 +405,7 @@ def get_chat(chat_jid: str, include_last_message: bool = True) -> dict[str, Any]
 
 
 @mcp.tool()
-def get_direct_chat_by_contact(sender_phone_number: str) -> dict[str, Any]:
+def get_direct_chat_by_contact(sender_phone_number: str) -> dict[str, Any] | None:
     """Get WhatsApp chat metadata by sender phone number.
 
     Args:
@@ -422,7 +450,7 @@ def get_last_interaction(jid: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_message_context(message_id: str, before: int = 5, after: int = 5) -> dict[str, Any]:
+def get_message_context(message_id: str, before: int = 5, after: int = 5) -> MessageContext | dict[str, Any]:
     """Get context around a specific WhatsApp message.
 
     Args:
@@ -506,6 +534,7 @@ def download_media(message_id: str, chat_jid: str) -> dict[str, Any]:
 
 
 # ── Shutdown handling + entry point ──────────────────────────────────────────
+
 
 def shutdown_handler(signum, frame) -> None:  # noqa: ARG001 — signal handler signature
     """Handle shutdown signals gracefully so the bridge process isn't orphaned."""

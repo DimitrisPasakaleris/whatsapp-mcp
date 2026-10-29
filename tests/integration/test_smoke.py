@@ -3,14 +3,15 @@
 Unit checks here run on every CI build. The single real-bridge round-trip at
 the bottom is marked ``integration`` and only runs when ``WHATSAPP_TEST_REAL=1``.
 """
+
 from __future__ import annotations
 
 import os
 
 import pytest
 
-from whatsapp_mcp import __version__, audio, config as config_module, server, whatsapp
-
+from whatsapp_mcp import __version__, audio, server, whatsapp
+from whatsapp_mcp import config as config_module
 
 EXPECTED_TOOLS = (
     "search_contacts",

@@ -29,6 +29,10 @@ A Model Context Protocol (MCP) server for WhatsApp, enabling Claude to read and 
 - Claude Desktop or Cursor
 - FFmpeg (optional, for voice message conversion)
 
+The Python server currently uses the MCP SDK v1 FastMCP API. The dependency
+is bounded below v2 so a fresh install does not select an incompatible major
+release. CI selects its Go toolchain from `whatsapp-bridge/go.mod`.
+
 ### Quick Start
 
 1. **Clone the repository**

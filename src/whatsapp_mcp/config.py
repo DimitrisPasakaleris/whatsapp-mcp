@@ -75,9 +75,7 @@ class Config:
         return f"http://{self.bridge_host}:{self.bridge_port}/api"
 
     # Webhook (only relevant if running the bridge yourself)
-    webhook_url: str = field(
-        default_factory=lambda: os.getenv("WEBHOOK_URL", "http://localhost:8769/whatsapp/webhook")
-    )
+    webhook_url: str = field(default_factory=lambda: os.getenv("WEBHOOK_URL", "http://localhost:8769/whatsapp/webhook"))
 
     # Forward self-messages via webhook
     forward_self: bool = field(

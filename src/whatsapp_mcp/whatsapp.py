@@ -263,10 +263,7 @@ def get_sender_name(sender_jid: str) -> str:
         # If no result, try looking for the number within JIDs
         if not result:
             # Extract the phone number part if it's a JID
-            if "@" in sender_jid:
-                phone_part = sender_jid.split("@")[0]
-            else:
-                phone_part = sender_jid
+            phone_part = sender_jid.split("@")[0] if "@" in sender_jid else sender_jid
 
             cursor.execute(
                 """
@@ -304,7 +301,7 @@ def get_sender_name(sender_jid: str) -> str:
             conn.close()
 
 
-def format_message(message: Message, show_chat_info: bool = True) -> None:
+def format_message(message: Message, show_chat_info: bool = True) -> str:
     """Print a single message with consistent formatting."""
     output = ""
 
@@ -325,7 +322,7 @@ def format_message(message: Message, show_chat_info: bool = True) -> None:
     return output
 
 
-def format_messages_list(messages: list[Message], show_chat_info: bool = True) -> None:
+def format_messages_list(messages: list[Message], show_chat_info: bool = True) -> str:
     output = ""
     if not messages:
         output += "No messages to display."
@@ -417,26 +414,26 @@ def list_messages(
         ]
         query_parts.append("JOIN chats ON messages.chat_jid = chats.jid")
         where_clauses = []
-        params = []
+        params: list[Any] = []
 
         # Add filters
         if after:
             try:
-                after = datetime.fromisoformat(after)
-            except ValueError:
-                raise ValueError(f"Invalid date format for 'after': {after}. Please use ISO-8601 format.")
+                after_date = datetime.fromisoformat(after)
+            except ValueError as e:
+                raise ValueError(f"Invalid date format for 'after': {after}. Please use ISO-8601 format.") from e
 
             where_clauses.append("messages.timestamp > ?")
-            params.append(after)
+            params.append(after_date)
 
         if before:
             try:
-                before = datetime.fromisoformat(before)
-            except ValueError:
-                raise ValueError(f"Invalid date format for 'before': {before}. Please use ISO-8601 format.")
+                before_date = datetime.fromisoformat(before)
+            except ValueError as e:
+                raise ValueError(f"Invalid date format for 'before': {before}. Please use ISO-8601 format.") from e
 
             where_clauses.append("messages.timestamp < ?")
-            params.append(before)
+            params.append(before_date)
 
         if sender_phone_number:
             aliases = _sender_aliases(sender_phone_number)
@@ -669,7 +666,7 @@ def list_chats(
             """)
 
         where_clauses = []
-        params = []
+        params: list[Any] = []
 
         if query:
             # instr() on the raw column matches Unicode; LOWER()+LIKE only covers ASCII.
@@ -1063,10 +1060,7 @@ def send_audio_message(recipient: str, media_path: str) -> tuple[bool, str]:
         try:
             media_path = audio.convert_to_opus_ogg_temp(media_path)
         except Exception as e:
-            return False, (
-                "Error converting file to opus ogg. You likely need to install ffmpeg: "
-                f"{e}"
-            )
+            return False, (f"Error converting file to opus ogg. You likely need to install ffmpeg: {e}")
 
     return _post_to_bridge({"recipient": recipient, "media_path": media_path})
 
@@ -1094,7 +1088,7 @@ def download_media(message_id: str, chat_jid: str) -> str | None:
                 logger.info("Media downloaded successfully: %s", path)
                 return path
             else:
-                logger.error("Download failed: %s", result.get('message', 'Unknown error'))
+                logger.error("Download failed: %s", result.get("message", "Unknown error"))
                 return None
         else:
             logger.error("Download HTTP error: %d - %s", response.status_code, response.text)
