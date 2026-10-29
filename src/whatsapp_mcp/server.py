@@ -456,16 +456,19 @@ def get_last_interaction(jid: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_message_context(message_id: str, before: int = 5, after: int = 5) -> MessageContext | dict[str, Any]:
+def get_message_context(
+    message_id: str, before: int = 5, after: int = 5, chat_jid: str | None = None
+) -> MessageContext | dict[str, Any]:
     """Get context around a specific WhatsApp message.
 
     Args:
         message_id: The ID of the message to get context for
         before: Number of messages to include before the target message (default 5)
         after: Number of messages to include after the target message (default 5)
+        chat_jid: Chat containing the message; required when its ID occurs in multiple chats
     """
     try:
-        return whatsapp_get_message_context(message_id, before, after)
+        return whatsapp_get_message_context(message_id, before, after, chat_jid)
     except WhatsAppDBError as e:
         return _db_error_response("get_message_context", e)
 
