@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1](https://github.com/DimitrisPasakaleris/whatsapp-mcp/compare/v0.2.0...v0.2.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* allow patched AnyIO and test MCP lifecycle teardown ([9bad85d](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/9bad85d85ca9acbd418ce98a605039c99ef6e61a))
+* bound media requests and clean owned audio conversions ([e249b01](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/e249b0119615fa7c95c12b9bf7f31f60c4b985ee))
+* honor bridge configuration and recognize disconnected sessions ([7adabed](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/7adabeddb024eac5214d0949160602896dd032b4))
+* honor webhook opt-out and exercise asynchronous test delivery ([137b95a](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/137b95a924c943aba7fa6ce10007b0df1d6d03f2))
+* preserve chat-scoped context and deterministic history ordering ([6f2fb67](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/6f2fb6779e7538a355da8cbd552b76f00833ac93))
+* preserve launcher process lifetime and exit status ([c26f53d](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/c26f53dc74f44cf92115c8f09521464da631c24f))
+* publish validated WhatsApp MCP audit fixes ([ae29bcd](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/ae29bcd2640e3784466f2e47014ee2e6b9b20dae))
+* restore compatible installs and validation gates ([2158fbd](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/2158fbd8282095dcac3998f06ec8f09cd66a6c96))
+
+
+### Documentation
+
+* clarify the existing unset forward-self default ([b27451a](https://github.com/DimitrisPasakaleris/whatsapp-mcp/commit/b27451ae23657035ebf4e8e38625085f1f86cc19))
+
 ## [Unreleased]
 
 ### Changed
