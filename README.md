@@ -29,6 +29,10 @@ A Model Context Protocol (MCP) server for WhatsApp, enabling Claude to read and 
 - Claude Desktop or Cursor
 - FFmpeg (optional, for voice message conversion)
 
+The Python server currently uses the MCP SDK v1 FastMCP API. The dependency
+is bounded below v2 so a fresh install does not select an incompatible major
+release. CI selects its Go toolchain from `whatsapp-bridge/go.mod`.
+
 ### Quick Start
 
 1. **Clone the repository**
@@ -201,6 +205,12 @@ Send a voice message (automatically converts to Opus .ogg format).
 - `recipient` (required): Phone number or group JID
 - `file_path` (required): Path to audio file
 
+Relative upload paths are resolved by the MCP process before forwarding them
+to the bridge. Temporary audio conversions are removed after the request;
+original files are retained. Bridge requests use a 30-second timeout. A send
+timeout means delivery is **unknown**, so check the chat before retrying to
+avoid sending the same message twice.
+
 #### `download_media`
 
 Download media from a received message.
@@ -259,22 +269,37 @@ Get messages around a specific message for context.
 **Parameters:**
 
 - `message_id` (required): ID of the target message
-- `chat_jid` (required): JID of the chat
+- `chat_jid` (optional): JID of the chat; required if the message ID occurs in multiple chats
 - `before` (optional): Number of messages before (default 5)
 - `after` (optional): Number of messages after (default 5)
+
+Message context preserves the requested sort order and does not collapse equal
+message IDs from different chats. Chat listings return one row per chat even
+when several messages share the latest timestamp.
 
 ## Configuration
 
 Copy `.env.example` to `.env` and configure as needed:
 
+Set these variables in the MCP process environment (or load `.env` through your
+process manager). A source checkout resolves its default database location to
+`whatsapp-bridge/store`, even before first pairing. Explicit `WHATSAPP_DB_PATH`,
+`WHATSMEOW_DB_PATH`, and `WHATSAPP_API_URL` values override those defaults.
+Startup probes the configured API's `/health` route; a disconnected bridge is
+recognized as running rather than launching another instance.
+
 | Variable               | Default                                  | Description                                  |
 | ---------------------- | ---------------------------------------- | -------------------------------------------- |
 | `WHATSAPP_BRIDGE_PORT` | `8080`                                   | Port for Go bridge REST API                  |
 | `WEBHOOK_URL`          | `http://localhost:8769/whatsapp/webhook` | Webhook for incoming messages                |
-| `FORWARD_SELF`         | `false`                                  | Forward messages sent by self                |
+| `FORWARD_SELF`         | `true`                                  | Forward messages sent by self                |
 | `WHATSAPP_DB_PATH`     | `../whatsapp-bridge/store/messages.db`   | Path to SQLite database                      |
 | `WHATSMEOW_DB_PATH`    | `../whatsapp-bridge/store/whatsapp.db`   | whatsmeow DB used for LID ↔ phone resolution |
 | `WHATSAPP_API_URL`     | `http://localhost:8080/api`              | Go bridge REST API URL                       |
+
+Set `WEBHOOK_URL` to an explicitly empty value to disable forwarding. Leaving
+the variable unset preserves the localhost default. Webhook receivers may
+return any successful 2xx response, including 201 and 204.
 
 ### CLI flags (Go bridge)
 
@@ -448,6 +473,11 @@ sequenceDiagram
 
 ## Development
 
+AnyIO requires version 4.14.2 or later within major version 4. This replaces
+the older cap that excluded security and cancellation fixes. The offline suite
+includes a real MCP stdio initialization/list-tools/shutdown check with bridge
+startup disabled, so lifecycle regressions can be detected without an account.
+
 ### Running Tests
 
 ```bash
@@ -488,6 +518,12 @@ Releases use Release Please automation; maintainer steps and fallback procedures
 are documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Troubleshooting
+
+The optional `launch.py --bridge-only` launcher waits for the bridge process it
+starts; it does not immediately stop it on returning from startup. Normal MCP
+launches preserve the child server's exit status so supervisors can detect
+failures. Launcher health probes honor `WHATSAPP_API_URL` and the configured
+bridge host/port.
 
 ### Authentication Issues
 

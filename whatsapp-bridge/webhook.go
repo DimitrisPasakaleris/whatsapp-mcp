@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -64,8 +65,12 @@ type WebhookPayload struct {
 
 // sendWebhookPayload marshals and POSTs a WebhookPayload to the configured webhook URL.
 func sendWebhookPayload(payload WebhookPayload) {
-	webhookURL := os.Getenv("WEBHOOK_URL")
-	if webhookURL == "" {
+	webhookURL, configured := os.LookupEnv("WEBHOOK_URL")
+	webhookURL = strings.TrimSpace(webhookURL)
+	if configured && webhookURL == "" {
+		return // An explicitly empty value disables forwarding.
+	}
+	if !configured {
 		webhookURL = "http://localhost:8769/whatsapp/webhook"
 	}
 
@@ -82,7 +87,7 @@ func sendWebhookPayload(payload WebhookPayload) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode == 200 {
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		fmt.Printf("[webhook] ✓ sent for message from %s\n", payload.Sender)
 	} else {
 		fmt.Printf("[webhook] ⚠ failed with status %d\n", resp.StatusCode)

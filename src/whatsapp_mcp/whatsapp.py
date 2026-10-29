@@ -263,10 +263,7 @@ def get_sender_name(sender_jid: str) -> str:
         # If no result, try looking for the number within JIDs
         if not result:
             # Extract the phone number part if it's a JID
-            if "@" in sender_jid:
-                phone_part = sender_jid.split("@")[0]
-            else:
-                phone_part = sender_jid
+            phone_part = sender_jid.split("@")[0] if "@" in sender_jid else sender_jid
 
             cursor.execute(
                 """
@@ -304,7 +301,7 @@ def get_sender_name(sender_jid: str) -> str:
             conn.close()
 
 
-def format_message(message: Message, show_chat_info: bool = True) -> None:
+def format_message(message: Message, show_chat_info: bool = True) -> str:
     """Print a single message with consistent formatting."""
     output = ""
 
@@ -325,7 +322,7 @@ def format_message(message: Message, show_chat_info: bool = True) -> None:
     return output
 
 
-def format_messages_list(messages: list[Message], show_chat_info: bool = True) -> None:
+def format_messages_list(messages: list[Message], show_chat_info: bool = True) -> str:
     output = ""
     if not messages:
         output += "No messages to display."
@@ -352,7 +349,7 @@ def _get_chat_messages_ordered(chat_jid: str) -> list[Message]:
             FROM messages
             JOIN chats ON messages.chat_jid = chats.jid
             WHERE messages.chat_jid = ?
-            ORDER BY messages.timestamp
+            ORDER BY messages.timestamp, messages.id
             """,
             (chat_jid,),
         )
@@ -407,6 +404,10 @@ def list_messages(
     Returns:
         List of message dictionaries with id, timestamp, sender, content, etc.
     """
+    if not 1 <= limit <= 500 or page < 0 or not 0 <= context_before <= 100 or not 0 <= context_after <= 100:
+        raise ValueError("Use limit 1..500, a nonnegative page, and context sizes 0..100")
+    if sort_by not in ("newest", "oldest"):
+        raise ValueError("sort_by must be newest or oldest")
     try:
         conn = sqlite3.connect(MESSAGES_DB_PATH)
         cursor = conn.cursor()
@@ -417,26 +418,26 @@ def list_messages(
         ]
         query_parts.append("JOIN chats ON messages.chat_jid = chats.jid")
         where_clauses = []
-        params = []
+        params: list[Any] = []
 
         # Add filters
         if after:
             try:
-                after = datetime.fromisoformat(after)
-            except ValueError:
-                raise ValueError(f"Invalid date format for 'after': {after}. Please use ISO-8601 format.")
+                after_date = datetime.fromisoformat(after)
+            except ValueError as e:
+                raise ValueError(f"Invalid date format for 'after': {after}. Please use ISO-8601 format.") from e
 
             where_clauses.append("messages.timestamp > ?")
-            params.append(after)
+            params.append(after_date)
 
         if before:
             try:
-                before = datetime.fromisoformat(before)
-            except ValueError:
-                raise ValueError(f"Invalid date format for 'before': {before}. Please use ISO-8601 format.")
+                before_date = datetime.fromisoformat(before)
+            except ValueError as e:
+                raise ValueError(f"Invalid date format for 'before': {before}. Please use ISO-8601 format.") from e
 
             where_clauses.append("messages.timestamp < ?")
-            params.append(before)
+            params.append(before_date)
 
         if sender_phone_number:
             aliases = _sender_aliases(sender_phone_number)
@@ -460,7 +461,7 @@ def list_messages(
         # Add sorting and pagination
         offset = page * limit
         order = "DESC" if sort_by == "newest" else "ASC"
-        query_parts.append(f"ORDER BY messages.timestamp {order}")
+        query_parts.append(f"ORDER BY messages.timestamp {order}, messages.chat_jid {order}, messages.id {order}")
         query_parts.append("LIMIT ? OFFSET ?")
         params.extend([limit, offset])
 
@@ -492,7 +493,7 @@ def list_messages(
             for msg in result:
                 by_chat[msg.chat_jid].append(msg)
 
-            seen_ids: set[str] = set()
+            seen_ids: set[tuple[str, str]] = set()
             messages_with_context: list[Message] = []
 
             for chat_jid, chat_matches in by_chat.items():
@@ -506,10 +507,14 @@ def list_messages(
                     start = max(0, idx - context_before)
                     end = min(len(all_chat_msgs), idx + context_after + 1)
                     for ctx_msg in all_chat_msgs[start:end]:
-                        if ctx_msg.id not in seen_ids:
-                            seen_ids.add(ctx_msg.id)
+                        key = (ctx_msg.chat_jid, ctx_msg.id)
+                        if key not in seen_ids:
+                            seen_ids.add(key)
                             messages_with_context.append(ctx_msg)
 
+            messages_with_context.sort(
+                key=lambda msg: (msg.timestamp, msg.chat_jid, msg.id), reverse=sort_by == "newest"
+            )
             return [msg_to_dict(msg) for msg in messages_with_context]
 
         # Return messages without context
@@ -523,8 +528,12 @@ def list_messages(
             conn.close()
 
 
-def get_message_context(message_id: str, before: int = 5, after: int = 5) -> MessageContext:
+def get_message_context(
+    message_id: str, before: int = 5, after: int = 5, chat_jid: str | None = None
+) -> MessageContext:
     """Get context around a specific message."""
+    if not 0 <= before <= 100 or not 0 <= after <= 100:
+        raise ValueError("Context sizes must be between 0 and 100")
     try:
         conn = sqlite3.connect(MESSAGES_DB_PATH)
         cursor = conn.cursor()
@@ -536,10 +545,14 @@ def get_message_context(message_id: str, before: int = 5, after: int = 5) -> Mes
             FROM messages
             JOIN chats ON messages.chat_jid = chats.jid
             WHERE messages.id = ?
+              AND (? IS NULL OR messages.chat_jid = ?)
         """,
-            (message_id,),
+            (message_id, chat_jid, chat_jid),
         )
-        msg_data = cursor.fetchone()
+        matches = cursor.fetchmany(2)
+        if len(matches) > 1:
+            raise ValueError("Message ID matches multiple chats; provide chat_jid to select the intended chat")
+        msg_data = matches[0] if matches else None
 
         if not msg_data:
             raise ValueError(f"Message with ID {message_id} not found")
@@ -561,11 +574,12 @@ def get_message_context(message_id: str, before: int = 5, after: int = 5) -> Mes
             SELECT messages.timestamp, messages.sender, chats.name, messages.content, messages.is_from_me, chats.jid, messages.id, messages.media_type
             FROM messages
             JOIN chats ON messages.chat_jid = chats.jid
-            WHERE messages.chat_jid = ? AND messages.timestamp < ?
-            ORDER BY messages.timestamp DESC
+            WHERE messages.chat_jid = ? AND
+                (messages.timestamp < ? OR (messages.timestamp = ? AND messages.id < ?))
+            ORDER BY messages.timestamp DESC, messages.id DESC
             LIMIT ?
         """,
-            (msg_data[7], msg_data[0], before),
+            (msg_data[7], msg_data[0], msg_data[0], msg_data[6], before),
         )
 
         before_messages = []
@@ -589,11 +603,12 @@ def get_message_context(message_id: str, before: int = 5, after: int = 5) -> Mes
             SELECT messages.timestamp, messages.sender, chats.name, messages.content, messages.is_from_me, chats.jid, messages.id, messages.media_type
             FROM messages
             JOIN chats ON messages.chat_jid = chats.jid
-            WHERE messages.chat_jid = ? AND messages.timestamp > ?
-            ORDER BY messages.timestamp ASC
+            WHERE messages.chat_jid = ? AND
+                (messages.timestamp > ? OR (messages.timestamp = ? AND messages.id > ?))
+            ORDER BY messages.timestamp ASC, messages.id ASC
             LIMIT ?
         """,
-            (msg_data[7], msg_data[0], after),
+            (msg_data[7], msg_data[0], msg_data[0], msg_data[6], after),
         )
 
         after_messages = []
@@ -615,7 +630,7 @@ def get_message_context(message_id: str, before: int = 5, after: int = 5) -> Mes
 
     except sqlite3.Error as e:
         logger.error("Database error: %s", e)
-        raise
+        raise WhatsAppDBError(f"get_message_context failed: {e}") from e
     finally:
         if "conn" in locals():
             conn.close()
@@ -664,12 +679,15 @@ def list_chats(
 
         if include_last_message:
             query_parts.append("""
-                LEFT JOIN messages ON chats.jid = messages.chat_jid
-                AND chats.last_message_time = messages.timestamp
+                LEFT JOIN messages ON messages.rowid = (
+                    SELECT latest.rowid FROM messages latest
+                    WHERE latest.chat_jid = chats.jid
+                    ORDER BY latest.timestamp DESC, latest.id DESC LIMIT 1
+                )
             """)
 
         where_clauses = []
-        params = []
+        params: list[Any] = []
 
         if query:
             # instr() on the raw column matches Unicode; LOWER()+LIKE only covers ASCII.
@@ -934,8 +952,11 @@ def get_chat(chat_jid: str, include_last_message: bool = True) -> dict[str, Any]
 
         if include_last_message:
             query += """
-                LEFT JOIN messages m ON c.jid = m.chat_jid
-                AND c.last_message_time = m.timestamp
+                LEFT JOIN messages m ON m.rowid = (
+                    SELECT latest.rowid FROM messages latest
+                    WHERE latest.chat_jid = c.jid
+                    ORDER BY latest.timestamp DESC, latest.id DESC LIMIT 1
+                )
             """
 
         query += " WHERE c.jid = ?"
@@ -1021,6 +1042,8 @@ def _post_to_bridge(payload: dict[str, Any]) -> tuple[bool, str]:
     url = f"{WHATSAPP_API_BASE_URL}/send"
     try:
         response = _session.post(url, json=payload, timeout=HTTP_TIMEOUT_SECONDS)
+    except requests.Timeout:
+        return False, "Request timed out; delivery status is unknown. Check the chat before retrying."
     except requests.RequestException as e:
         return False, f"Request error: {e}"
 
@@ -1029,9 +1052,13 @@ def _post_to_bridge(payload: dict[str, Any]) -> tuple[bool, str]:
 
     try:
         result = response.json()
-    except json.JSONDecodeError:
+    except ValueError:
         return False, f"Error parsing response: {response.text}"
 
+    if not isinstance(result, dict) or not isinstance(result.get("success"), bool):
+        return False, "Invalid bridge response: expected an object with a boolean success field"
+    if "message" in result and not isinstance(result["message"], str):
+        return False, "Invalid bridge response: expected a text message field"
     return result.get("success", False), result.get("message", "Unknown response")
 
 
@@ -1048,7 +1075,7 @@ def send_file(recipient: str, media_path: str) -> tuple[bool, str]:
         return False, "Media path must be provided"
     if not os.path.isfile(media_path):
         return False, f"Media file not found: {media_path}"
-    return _post_to_bridge({"recipient": recipient, "media_path": media_path})
+    return _post_to_bridge({"recipient": recipient, "media_path": os.path.abspath(media_path)})
 
 
 def send_audio_message(recipient: str, media_path: str) -> tuple[bool, str]:
@@ -1059,16 +1086,22 @@ def send_audio_message(recipient: str, media_path: str) -> tuple[bool, str]:
     if not os.path.isfile(media_path):
         return False, f"Media file not found: {media_path}"
 
+    converted_path = None
     if not media_path.endswith(".ogg"):
         try:
-            media_path = audio.convert_to_opus_ogg_temp(media_path)
+            converted_path = audio.convert_to_opus_ogg_temp(media_path)
+            media_path = converted_path
         except Exception as e:
-            return False, (
-                "Error converting file to opus ogg. You likely need to install ffmpeg: "
-                f"{e}"
-            )
+            return False, (f"Error converting file to opus ogg. You likely need to install ffmpeg: {e}")
 
-    return _post_to_bridge({"recipient": recipient, "media_path": media_path})
+    try:
+        return _post_to_bridge({"recipient": recipient, "media_path": os.path.abspath(media_path)})
+    finally:
+        if converted_path is not None:
+            try:
+                os.unlink(converted_path)
+            except OSError as exc:
+                logger.warning("Could not remove converted audio file: %s", exc)
 
 
 def download_media(message_id: str, chat_jid: str) -> str | None:
@@ -1085,16 +1118,22 @@ def download_media(message_id: str, chat_jid: str) -> str | None:
         url = f"{WHATSAPP_API_BASE_URL}/download"
         payload = {"message_id": message_id, "chat_jid": chat_jid}
 
-        response = _session.post(url, json=payload)
+        response = _session.post(url, json=payload, timeout=HTTP_TIMEOUT_SECONDS)
 
         if response.status_code == 200:
             result = response.json()
-            if result.get("success", False):
+            if not isinstance(result, dict):
+                logger.error("Download response must be an object")
+                return None
+            if result.get("success") is True:
                 path = result.get("path")
+                if not isinstance(path, str) or not path:
+                    logger.error("Download response is missing a valid media path")
+                    return None
                 logger.info("Media downloaded successfully: %s", path)
                 return path
             else:
-                logger.error("Download failed: %s", result.get('message', 'Unknown error'))
+                logger.error("Download failed: %s", result.get("message", "Unknown error"))
                 return None
         else:
             logger.error("Download HTTP error: %d - %s", response.status_code, response.text)

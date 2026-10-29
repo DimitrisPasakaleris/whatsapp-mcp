@@ -10,7 +10,6 @@ import sys
 import tomllib
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -58,10 +57,7 @@ def main() -> int:
 
     errors: list[str] = []
     if pyproject_version != server_version:
-        errors.append(
-            f"Version mismatch: pyproject.toml={pyproject_version} "
-            f"!= server.json.version={server_version}"
-        )
+        errors.append(f"Version mismatch: pyproject.toml={pyproject_version} != server.json.version={server_version}")
     if pyproject_version != package_version:
         errors.append(
             f"Version mismatch: pyproject.toml={pyproject_version} "
@@ -77,9 +73,7 @@ def main() -> int:
             errors.append(f"Invalid tag format: {tag}: {exc}")
         else:
             if pyproject_version != normalized_tag:
-                errors.append(
-                    f"Version mismatch: tag={normalized_tag} != pyproject.toml={pyproject_version}"
-                )
+                errors.append(f"Version mismatch: tag={normalized_tag} != pyproject.toml={pyproject_version}")
 
     if errors:
         for error in errors:
