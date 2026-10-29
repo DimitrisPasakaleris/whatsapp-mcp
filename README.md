@@ -276,6 +276,10 @@ Copy `.env.example` to `.env` and configure as needed:
 | `WHATSMEOW_DB_PATH`    | `../whatsapp-bridge/store/whatsapp.db`   | whatsmeow DB used for LID ↔ phone resolution |
 | `WHATSAPP_API_URL`     | `http://localhost:8080/api`              | Go bridge REST API URL                       |
 
+Set `WEBHOOK_URL` to an explicitly empty value to disable forwarding. Leaving
+the variable unset preserves the localhost default. Webhook receivers may
+return any successful 2xx response, including 201 and 204.
+
 ### CLI flags (Go bridge)
 
 | Flag                  | Default | Description                                                                                                                                                                                                                                                       |
