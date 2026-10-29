@@ -25,8 +25,7 @@ async def test_stdio_initialization_and_clean_teardown(tmp_path):
         env={**os.environ, "WHATSAPP_MCP_CONFIG_DIR": str(tmp_path)},
     )
     with anyio.fail_after(20):
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                tools = await session.list_tools()
-                assert {"list_chats", "send_message", "download_media"} <= {tool.name for tool in tools.tools}
+        async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            assert {"list_chats", "send_message", "download_media"} <= {tool.name for tool in tools.tools}
