@@ -201,6 +201,12 @@ Send a voice message (automatically converts to Opus .ogg format).
 - `recipient` (required): Phone number or group JID
 - `file_path` (required): Path to audio file
 
+Relative upload paths are resolved by the MCP process before forwarding them
+to the bridge. Temporary audio conversions are removed after the request;
+original files are retained. Bridge requests use a 30-second timeout. A send
+timeout means delivery is **unknown**, so check the chat before retrying to
+avoid sending the same message twice.
+
 #### `download_media`
 
 Download media from a received message.
