@@ -1018,6 +1018,8 @@ def _post_to_bridge(payload: dict[str, Any]) -> tuple[bool, str]:
     url = f"{WHATSAPP_API_BASE_URL}/send"
     try:
         response = _session.post(url, json=payload, timeout=HTTP_TIMEOUT_SECONDS)
+    except requests.Timeout:
+        return False, "Request timed out; delivery status is unknown. Check the chat before retrying."
     except requests.RequestException as e:
         return False, f"Request error: {e}"
 
@@ -1026,9 +1028,13 @@ def _post_to_bridge(payload: dict[str, Any]) -> tuple[bool, str]:
 
     try:
         result = response.json()
-    except json.JSONDecodeError:
+    except ValueError:
         return False, f"Error parsing response: {response.text}"
 
+    if not isinstance(result, dict) or not isinstance(result.get("success"), bool):
+        return False, "Invalid bridge response: expected an object with a boolean success field"
+    if "message" in result and not isinstance(result["message"], str):
+        return False, "Invalid bridge response: expected a text message field"
     return result.get("success", False), result.get("message", "Unknown response")
 
 
@@ -1045,7 +1051,7 @@ def send_file(recipient: str, media_path: str) -> tuple[bool, str]:
         return False, "Media path must be provided"
     if not os.path.isfile(media_path):
         return False, f"Media file not found: {media_path}"
-    return _post_to_bridge({"recipient": recipient, "media_path": media_path})
+    return _post_to_bridge({"recipient": recipient, "media_path": os.path.abspath(media_path)})
 
 
 def send_audio_message(recipient: str, media_path: str) -> tuple[bool, str]:
@@ -1056,13 +1062,22 @@ def send_audio_message(recipient: str, media_path: str) -> tuple[bool, str]:
     if not os.path.isfile(media_path):
         return False, f"Media file not found: {media_path}"
 
+    converted_path = None
     if not media_path.endswith(".ogg"):
         try:
-            media_path = audio.convert_to_opus_ogg_temp(media_path)
+            converted_path = audio.convert_to_opus_ogg_temp(media_path)
+            media_path = converted_path
         except Exception as e:
             return False, (f"Error converting file to opus ogg. You likely need to install ffmpeg: {e}")
 
-    return _post_to_bridge({"recipient": recipient, "media_path": media_path})
+    try:
+        return _post_to_bridge({"recipient": recipient, "media_path": os.path.abspath(media_path)})
+    finally:
+        if converted_path is not None:
+            try:
+                os.unlink(converted_path)
+            except OSError as exc:
+                logger.warning("Could not remove converted audio file: %s", exc)
 
 
 def download_media(message_id: str, chat_jid: str) -> str | None:
@@ -1079,12 +1094,18 @@ def download_media(message_id: str, chat_jid: str) -> str | None:
         url = f"{WHATSAPP_API_BASE_URL}/download"
         payload = {"message_id": message_id, "chat_jid": chat_jid}
 
-        response = _session.post(url, json=payload)
+        response = _session.post(url, json=payload, timeout=HTTP_TIMEOUT_SECONDS)
 
         if response.status_code == 200:
             result = response.json()
-            if result.get("success", False):
+            if not isinstance(result, dict):
+                logger.error("Download response must be an object")
+                return None
+            if result.get("success") is True:
                 path = result.get("path")
+                if not isinstance(path, str) or not path:
+                    logger.error("Download response is missing a valid media path")
+                    return None
                 logger.info("Media downloaded successfully: %s", path)
                 return path
             else:
